@@ -1,14 +1,6 @@
-import 'util/stripe_json_utils.dart';
+import 'package:dio/dio.dart';
 
 class StripeApiError {
-  static const String FIELD_TYPE = 'type';
-  static const String FIELD_CHARGE = 'charge';
-  static const String FIELD_CODE = 'code';
-  static const String FIELD_DECLINE_CODE = 'decline_code';
-  static const String FIELD_DOC_URL = 'doc_url';
-  static const String FIELD_MESSAGE = 'message';
-  static const String FIELD_PARAM = 'param';
-
   final String requestId;
   final String type;
   final String charge;
@@ -18,7 +10,7 @@ class StripeApiError {
   final String message;
   final String param;
 
-  StripeApiError._internal(
+  StripeApiError({
     this.requestId,
     this.type,
     this.charge,
@@ -27,33 +19,29 @@ class StripeApiError {
     this.docUrl,
     this.message,
     this.param,
-  );
+  });
 
-  factory StripeApiError(String requestId, Map<String, dynamic> json) {
-    final type = optString(json, FIELD_TYPE);
-    final charge = optString(json, FIELD_CHARGE);
-    final code = optString(json, FIELD_CODE);
-    final declineCode = optString(json, FIELD_DECLINE_CODE);
-    final docUrl = optString(json, FIELD_DOC_URL);
-    final message = optString(json, FIELD_MESSAGE);
-    final param = optString(json, FIELD_PARAM);
-
-    return StripeApiError._internal(
-      requestId,
-      type,
-      charge,
-      code,
-      declineCode,
-      docUrl,
-      message,
-      param,
+  factory StripeApiError.fromJson(String requestId, Map<String, dynamic> json) {
+    return StripeApiError(
+      requestId: requestId,
+      type: json['type'] == null ? null : json['type'] as String,
+      charge: json['charge'] == null ? null : json['charge'] as String,
+      code: json['code'] == null ? null : json['code'] as String,
+      declineCode:
+          json['decline_code'] == null ? null : json['decline_code'] as String,
+      docUrl: json['doc_url'] == null ? null : json['doc_url'] as String,
+      message: json['message'] == null ? null : json['message'] as String,
+      param: json['param'] == null ? null : json['param'] as String,
     );
   }
 }
 
-class StripeApiException implements Exception {
+class StripeApiException extends DioError {
+  @override
+  // ignore: overridden_fields
   final StripeApiError error;
   final String requestId;
+  @override
   final String message;
 
   StripeApiException(this.error)
@@ -61,7 +49,5 @@ class StripeApiException implements Exception {
         message = error.message;
 
   @override
-  String toString() {
-    return message;
-  }
+  String toString() => message;
 }

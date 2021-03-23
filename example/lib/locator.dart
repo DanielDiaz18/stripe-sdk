@@ -1,14 +1,13 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 
 import 'network/network_service.dart';
 
-const _cloudFunctionsRegion = 'europe-west2';
-
 final locator = GetIt.instance;
 
 void initializeLocator() {
-  locator.registerLazySingleton(
-      () => CloudFunctions(region: _cloudFunctionsRegion));
+  locator.registerLazySingleton(() =>
+      Dio(BaseOptions(baseUrl: 'http://192.168.0.36:8081/stripe'))
+        ..interceptors.add(LogInterceptor()));
   locator.registerLazySingleton(() => NetworkService(locator.get()));
 }

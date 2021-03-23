@@ -1,70 +1,82 @@
 import 'dart:async';
-import 'dart:convert' show json;
-import 'dart:developer';
+
+import 'package:meta/meta.dart';
 
 import 'stripe_api_handler.dart';
-import 'stripe_error.dart';
-import 'util/stripe_json_utils.dart';
 
 /// Function that takes a apiVersion and returns a Stripe ephemeral key response
-typedef EphemeralKeyProvider = Future<String> Function(String apiVersion);
+typedef EphemeralKeyProvider = Future<EphemeralKey> Function(String apiVersion);
 
 /// Represents a Stripe Ephemeral Key
+@immutable
 class EphemeralKey {
-  static const String FIELD_CREATED = 'created';
-  static const String FIELD_EXPIRES = 'expires';
-  static const String FIELD_SECRET = 'secret';
-  static const String FIELD_LIVEMODE = 'livemode';
-  static const String FIELD_OBJECT = 'object';
-  static const String FIELD_ID = 'id';
-  static const String FIELD_ASSOCIATED_OBJECTS = 'associated_objects';
-  static const String FIELD_TYPE = 'type';
+  final String id;
+  final int created;
+  final int expires;
+  final bool liveMode;
+  final String object;
+  final String secret;
+  final List<AssociatedObject> associatedObjects;
+  final DateTime createdAt;
+  final DateTime expiresAt;
 
-  static const String NULL = 'null';
+  const EphemeralKey({
+    this.id,
+    this.created,
+    this.expires,
+    this.liveMode,
+    this.object,
+    this.secret,
+    this.associatedObjects,
+    this.createdAt,
+    this.expiresAt,
+  });
 
-  String _id;
-  int _created;
-  int _expires;
-  bool _liveMode;
-  String _customerId;
-  String _object;
-  String _secret;
-  String _type;
-  DateTime _createdAt;
-  DateTime _expiresAt;
-
-  EphemeralKey.fromJson(Map<String, dynamic> json) {
-    _id = optString(json, FIELD_ID);
-    _created = optInteger(json, FIELD_CREATED);
-    _expires = optInteger(json, FIELD_EXPIRES);
-    _liveMode = optBoolean(json, FIELD_LIVEMODE);
-    _customerId = json[FIELD_ASSOCIATED_OBJECTS][0][FIELD_ID];
-    _type = json[FIELD_ASSOCIATED_OBJECTS][0][FIELD_TYPE];
-    _object = optString(json, FIELD_OBJECT);
-    _secret = optString(json, FIELD_SECRET);
-    _createdAt = DateTime.fromMillisecondsSinceEpoch(_created * 1000);
-    _expiresAt = DateTime.fromMillisecondsSinceEpoch(_expires * 1000);
+  factory EphemeralKey.fromJson(Map<String, dynamic> json) {
+    return EphemeralKey(
+      id: json['id'] == null ? null : json['id'] as String,
+      created: json['created'] == null ? null : json['created'] as int,
+      expires: json['expires'] == null ? null : json['expires'] as int,
+      liveMode: json['livemode'] == null ? null : json['livemode'] as bool,
+      object: json['object'] == null ? null : json['object'] as String,
+      secret: json['secret'] == null ? null : json['secret'] as String,
+      associatedObjects: json['associated_objects'] == null
+          ? null
+          : (json['associated_objects'] as List)
+              .map((e) => e == null
+                  ? null
+                  : AssociatedObject.fromJson(e as Map<String, dynamic>))
+              .toList(),
+      createdAt: json['created'] == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(
+              (json['created'] as int) * 1000),
+      expiresAt: json['expires'] == null
+          ? null
+          : DateTime.fromMicrosecondsSinceEpoch(
+              (json['expires'] as int) * 1000),
+    );
   }
 
-  String get id => _id;
+  String get customerId => associatedObjects[0]?.id;
+}
 
-  int get created => _created;
+@immutable
+class AssociatedObject {
+  final String type;
+  final String id;
 
-  int get expires => _expires;
+  const AssociatedObject({
+    this.type,
+    this.id,
+  });
 
-  String get customerId => _customerId;
-
-  bool get liveMode => _liveMode;
-
-  String get object => _object;
-
-  String get secret => _secret;
-
-  String get type => _type;
-
-  DateTime get createdAt => _createdAt;
-
-  DateTime get expiresAt => _expiresAt;
+  factory AssociatedObject.fromJson(Map<String, dynamic> json) {
+    return AssociatedObject(
+      type: json['type'] != null ? json['type'] as String : null,
+      id: json['id'] != null ? json['id'] as String : null,
+    );
+  }
 }
 
 class EphemeralKeyManager {
@@ -78,27 +90,7 @@ class EphemeralKeyManager {
   /// Will fetch a new one using [EphemeralKeyProvider] if required.
   Future<EphemeralKey> retrieveEphemeralKey() async {
     if (_shouldRefreshKey()) {
-      String key;
-      try {
-        key = await ephemeralKeyProvider(DEFAULT_API_VERSION);
-      } catch (error) {
-        log(error);
-        rethrow;
-      }
-
-      try {
-        Map<String, dynamic> decodedKey = json.decode(key);
-        _ephemeralKey = EphemeralKey.fromJson(decodedKey);
-      } catch (error) {
-        log(error.toString());
-        final e = StripeApiError(null, {
-          StripeApiError.FIELD_MESSAGE:
-              'Failed to parse Ephemeral Key, Please return the response as it is as you received from stripe server',
-        });
-        throw StripeApiException(e);
-      }
-
-      return _ephemeralKey;
+      return _ephemeralKey = await ephemeralKeyProvider(kDefaultApiVersion);
     } else {
       return _ephemeralKey;
     }
@@ -108,7 +100,6 @@ class EphemeralKeyManager {
     if (_ephemeralKey == null) {
       return true;
     }
-
     final now = DateTime.now();
     final diff = _ephemeralKey.expiresAt.difference(now);
     return diff.inSeconds < timeBufferInSeconds;

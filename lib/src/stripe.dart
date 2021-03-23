@@ -23,32 +23,37 @@ class Stripe {
   /// It is required to use your own app specific url scheme and host. This
   /// parameter must match your "android/app/src/main/AndroidManifest.xml"
   /// and "ios/Runner/Info.plist" configuration.
-  Stripe(String publishableKey, {String stripeAccount, @required String returnUrlForSca})
+  Stripe(String publishableKey,
+      {String stripeAccount, @required String returnUrlForSca})
       : api = StripeApi(publishableKey, stripeAccount: stripeAccount),
         _returnUrlForSca = returnUrlForSca ?? 'stripesdk://3ds.stripesdk.io' {
-    // TODO: Throw real exception in 5.0
     assert(_isValidScheme());
   }
 
   bool _isValidScheme() {
-    var isHttpScheme = ['http', 'https'].contains(_returnUrlForSca.split(':')[0]);
+    final isHttpScheme =
+        ['http', 'https'].contains(_returnUrlForSca.split(':')[0]);
     if (kIsWeb) {
-      assert(isHttpScheme, 'Return URL schema must be http/https when compiled for web.');
+      assert(isHttpScheme,
+          'Return URL schema must be http/https when compiled for web.');
     } else {
-      assert(!isHttpScheme, 'Return URL schema must not http/https when compiled for mobile.');
+      assert(!isHttpScheme,
+          'Return URL schema must not http/https when compiled for mobile.');
     }
     return true;
   }
 
   final StripeApi api;
   final String _returnUrlForSca;
+
   static Stripe _instance;
 
   /// Access the instance of Stripe by calling [Stripe.instance].
   /// Throws an [Exception] if [Stripe.init] hasn't been called previously.
   static Stripe get instance {
     if (_instance == null) {
-      throw Exception('Attempted to get singleton instance of Stripe without initialization');
+      throw Exception(
+          'Attempted to get singleton instance of Stripe without initialization');
     }
     return _instance;
   }
@@ -67,8 +72,10 @@ class Stripe {
   /// It is required to use your own app specific url scheme and host. This
   /// parameter must match your "android/app/src/main/AndroidManifest.xml"
   /// and "ios/Runner/Info.plist" configuration.
-  static void init(String publishableKey, {String stripeAccount, @required String returnUrlForSca}) {
-    _instance = Stripe(publishableKey, stripeAccount: stripeAccount, returnUrlForSca: returnUrlForSca);
+  static void init(String publishableKey,
+      {String stripeAccount, @required String returnUrlForSca}) {
+    _instance = Stripe(publishableKey,
+        stripeAccount: stripeAccount, returnUrlForSca: returnUrlForSca);
     StripeApi.init(publishableKey, stripeAccount: stripeAccount);
   }
 
@@ -77,7 +84,7 @@ class Stripe {
   String getReturnUrlForSca({String webReturnPath}) {
     if (kIsWeb) {
       assert(webReturnPath?.isNotEmpty ?? false);
-      var webUrl = Uri.base.toString() + webReturnPath;
+      final webUrl = Uri.base.toString() + webReturnPath;
       debugPrint(webUrl);
       return webUrl;
     } else {
@@ -88,11 +95,12 @@ class Stripe {
 
   /// Authenticate a SetupIntent
   /// https://stripe.com/docs/api/setup_intents/confirm
-  Future<Map<String, dynamic>> authenticateSetupIntent(String clientSecret, {String webReturnPath}) async {
-    final intent = await api
-        .confirmSetupIntent(clientSecret, data: {'return_url': getReturnUrlForSca(webReturnPath: webReturnPath)});
+  Future<Map<String, dynamic>> authenticateSetupIntent(String clientSecret,
+      {String webReturnPath}) async {
+    final intent = await api.confirmSetupIntent(clientSecret,
+        data: {'return_url': getReturnUrlForSca(webReturnPath: webReturnPath)});
     if (intent['status'] == 'requires_action') {
-      return _handleSetupIntent(intent['next_action']);
+      return _handleSetupIntent(intent['next_action'] as Map);
     } else {
       return Future.value(intent);
     }
@@ -100,26 +108,34 @@ class Stripe {
 
   /// Confirm and authenticate a SetupIntent
   /// https://stripe.com/docs/api/setup_intents/confirm
-  Future<Map<String, dynamic>> confirmSetupIntent(String clientSecret, String paymentMethod,
+  Future<Map<String, dynamic>> confirmSetupIntent(
+      String clientSecret, String paymentMethod,
       {String webReturnPath}) async {
-    final intent = await api.confirmSetupIntent(clientSecret,
-        data: {'return_url': getReturnUrlForSca(webReturnPath: webReturnPath), 'payment_method': paymentMethod});
+    final intent = await api.confirmSetupIntent(clientSecret, data: {
+      'return_url': getReturnUrlForSca(webReturnPath: webReturnPath),
+      'payment_method': paymentMethod
+    });
     if (intent['status'] == 'requires_action') {
-      return _handleSetupIntent(intent['next_action']);
+      return _handleSetupIntent(intent['next_action'] as Map);
     } else {
-      return Future.value(intent);
+      return intent;
     }
   }
 
   /// Confirm and authenticate a payment.
   /// Returns the PaymentIntent.
   /// https://stripe.com/docs/payments/payment-intents/android
-  Future<Map<String, dynamic>> confirmPayment(String paymentIntentClientSecret, {String paymentMethodId}) async {
-    final data = {'return_url': getReturnUrlForSca()};
-    if (paymentMethodId != null) data['payment_method'] = paymentMethodId;
-    final paymentIntent = await api.confirmPaymentIntent(paymentIntentClientSecret, data: data);
+  Future<Map<String, dynamic>> confirmPayment(String paymentIntentClientSecret,
+      {String paymentMethodId}) async {
+    final data = {
+      'return_url': getReturnUrlForSca(),
+      if (paymentMethodId != null) 'payment_method': paymentMethodId,
+    };
+    final paymentIntent =
+        await api.confirmPaymentIntent(paymentIntentClientSecret, data: data);
     if (paymentIntent['status'] == 'requires_action') {
-      return authenticatePaymentWithNextAction(paymentIntent['next_action']);
+      return authenticatePaymentWithNextAction(
+          paymentIntent['next_action'] as Map);
     } else {
       return Future.value(paymentIntent);
     }
@@ -128,20 +144,23 @@ class Stripe {
   /// Authenticate a payment.
   /// Returns the PaymentIntent.
   /// https://stripe.com/docs/payments/payment-intents/android-manual
-  Future<Map<String, dynamic>> authenticatePayment(String paymentIntentClientSecret) async {
-    final paymentIntent = await api.retrievePaymentIntent(paymentIntentClientSecret);
+  Future<Map<String, dynamic>> authenticatePayment(
+      String paymentIntentClientSecret) async {
+    final paymentIntent =
+        await api.retrievePaymentIntent(paymentIntentClientSecret);
     if (paymentIntent['status'] != 'requires_action') {
-      return Future.value(paymentIntent);
+      return paymentIntent;
     }
     final nextAction = paymentIntent['next_action'];
-    return authenticatePaymentWithNextAction(nextAction);
+    return authenticatePaymentWithNextAction(nextAction as Map);
   }
 
   /// Authenticate a payment with [nextAction].
   /// This is similar to [authenticatePayment] but is slightly more efficient,
   /// as it avoids the request to the Stripe API to retrieve the action.
   /// To use this, return the complete [nextAction] from your server.
-  Future<Map<String, dynamic>> authenticatePaymentWithNextAction(Map nextAction) async {
+  Future<Map<String, dynamic>> authenticatePaymentWithNextAction(
+      Map nextAction) async {
     return _authenticateIntent(
         nextAction,
         (uri) => api.retrievePaymentIntent(
@@ -159,16 +178,19 @@ class Stripe {
             ));
   }
 
-  Future<Map<String, dynamic>> _authenticateIntent(Map action, IntentProvider callback) async {
-    final url = action['redirect_to_url']['url'];
+  Future<Map<String, dynamic>> _authenticateIntent(
+      Map action, IntentProvider callback) async {
+    final url = action['redirect_to_url']['url'] as String;
     final completer = Completer<Map<String, dynamic>>();
     if (!kIsWeb) {
-      final returnUrl = Uri.parse(action['redirect_to_url']['return_url']);
+      final returnUrl =
+          Uri.parse(action['redirect_to_url']['return_url'] as String);
       StreamSubscription sub;
       sub = getUriLinksStream().listen((Uri uri) async {
         if (uri.scheme == returnUrl.scheme &&
             uri.host == returnUrl.host &&
-            uri.queryParameters['requestId'] == returnUrl.queryParameters['requestId']) {
+            uri.queryParameters['requestId'] ==
+                returnUrl.queryParameters['requestId']) {
           await sub.cancel();
           final intent = await callback(uri);
           completer.complete(intent);

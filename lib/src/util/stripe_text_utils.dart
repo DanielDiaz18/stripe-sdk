@@ -7,12 +7,7 @@ const String HEX_ARRAY = '0123456789ABCDEF';
 /// @param value an input string that may or may not be entirely whitespace
 /// @return {@code null} if the string is entirely whitespace, otherwise the input value
 ///
-String nullIfBlank(String value) {
-  if (isBlank(value)) {
-    return null;
-  }
-  return value;
-}
+String nullIfBlank(String value) => isBlank(value) ? null : value;
 
 /// A checker for whether or not the input value is entirely whitespace. This is slightly more
 /// aggressive than the android TextUtils#isEmpty method, which only returns true for
@@ -20,9 +15,7 @@ String nullIfBlank(String value) {
 ///
 /// @param value a possibly blank input string value
 /// @return {@code true} if and only if the value is all whitespace, {@code null}, or empty
-bool isBlank(String value) {
-  return value == null || value.trim().isEmpty;
-}
+bool isBlank(String value) => value?.trim()?.isEmpty == true;
 
 /// Converts a card number that may have spaces between the numbers into one without any spaces.
 /// Note: method does not check that all characters are digits or spaces.
@@ -47,7 +40,7 @@ bool hasAnyPrefix(String number, List<String> prefixes) {
     return false;
   }
 
-  for (var prefix in prefixes) {
+  for (final prefix in prefixes) {
     if (number.startsWith(prefix)) {
       return true;
     }
@@ -55,20 +48,8 @@ bool hasAnyPrefix(String number, List<String> prefixes) {
   return false;
 }
 
-bool isDigit(String s) {
-  if (s == null) {
-    return false;
-  }
-  return int.tryParse(s) != null;
-}
+bool isDigit(String s) => s != null && RegExp(r'^\d$').hasMatch(s);
 
-bool isDigitsOnly(String s) {
-  if (s == null) {
-    return false;
-  }
-  return int.tryParse(s) != null;
-}
+bool isDigitsOnly(String s) => s != null && RegExp(r'^\d+$').hasMatch(s);
 
-int getNumericValue(String s) {
-  return int.tryParse(s);
-}
+int getNumericValue(String s) => int.tryParse(s);

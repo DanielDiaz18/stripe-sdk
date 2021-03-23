@@ -37,11 +37,12 @@ class ModelUtils {
   }
 
   static int normalizeYear(int year, DateTime now) {
-    if (year < 100 && year >= 0) {
+    int y = year;
+    if (y < 100 && y >= 0) {
       final currentYear = now.year.toString();
       final prefix = currentYear.substring(0, currentYear.length - 2);
-      year = int.parse('$prefix$year');
+      y = int.parse('$prefix$y');
     }
-    return year;
+    return y;
   }
 }

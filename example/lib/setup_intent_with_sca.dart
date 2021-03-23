@@ -1,8 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:stripe_sdk/stripe_sdk.dart';
-import 'package:stripe_sdk/stripe_sdk_ui.dart';
 import 'package:stripe_sdk_example/network/network_service.dart';
 
 import 'locator.dart';
@@ -20,42 +18,50 @@ class SetupIntentWithScaScreen extends StatelessWidget {
           Card(
               child: ListTile(
             title: Text('pm_card_authenticationRequiredOnSetup'),
-            onTap: () async => await completeSetupIntent(context, 'pm_card_authenticationRequiredOnSetup'),
+            onTap: () async => await completeSetupIntent(
+                context, 'pm_card_authenticationRequiredOnSetup'),
           )),
           Card(
               child: ListTile(
             title: Text('pm_card_authenticationRequired'),
-            onTap: () async => await completeSetupIntent(context, 'pm_card_authenticationRequired'),
+            onTap: () async => await completeSetupIntent(
+                context, 'pm_card_authenticationRequired'),
           )),
           Card(
               child: ListTile(
-            title: Text('pm_card_authenticationRequiredChargeDeclinedInsufficientFunds'),
-            onTap: () async =>
-                await completeSetupIntent(context, 'pm_card_authenticationRequiredChargeDeclinedInsufficientFunds'),
+            title: Text(
+                'pm_card_authenticationRequiredChargeDeclinedInsufficientFunds'),
+            onTap: () async => await completeSetupIntent(context,
+                'pm_card_authenticationRequiredChargeDeclinedInsufficientFunds'),
           )),
         ],
       ),
     );
   }
 
-  Future<void> completeSetupIntent(BuildContext context, String paymentMethod) async {
+  Future<void> completeSetupIntent(
+      BuildContext context, String paymentMethod) async {
     final stripe = Stripe.instance;
     final NetworkService networkService = locator.get();
     showProgressDialog(context);
-    final createSetupIntentResponse = await networkService.createSetupIntentWithPaymentMethod(
-        paymentMethod, Stripe.instance.getReturnUrlForSca(webReturnPath: ModalRoute.of(context).settings.name));
-    final PaymentMethodStore paymentMethods = Provider.of(context, listen: false);
+    final createSetupIntentResponse = await networkService.createSetupIntent(
+        paymentMethod: paymentMethod,
+        returnUrl: Stripe.instance.getReturnUrlForSca(
+            webReturnPath: ModalRoute.of(context).settings.name));
+    // final PaymentMethodStore paymentMethods =
+    //     Provider.of(context, listen: false);
     if (createSetupIntentResponse.status == 'succeeded') {
       hideProgressDialog(context);
       Navigator.pop(context, true);
 
       /// A new payment method has been attached, so refresh the store
       // ignore: unawaited_futures
-      paymentMethods.refresh();
+      // paymentMethods.refresh();
 
       return;
     }
-    final setupIntent = await stripe.authenticateSetupIntent(createSetupIntentResponse.clientSecret,
+    final setupIntent = await stripe.authenticateSetupIntent(
+        createSetupIntentResponse.clientSecret,
         webReturnPath: ModalRoute.of(context).settings.name);
     hideProgressDialog(context);
     Navigator.pop(context, setupIntent['status'] == 'succeeded');

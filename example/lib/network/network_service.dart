@@ -1,63 +1,46 @@
-import 'dart:convert';
-import 'dart:developer';
-
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:stripe_sdk/stripe_sdk_ui.dart';
+import 'package:flutter/foundation.dart';
+import 'package:stripe_sdk/stripe_sdk.dart';
+import 'package:dio/dio.dart';
 
 class NetworkService {
-  final CloudFunctions _cf;
+  final Dio _client;
 
-  NetworkService(this._cf);
-
-  NetworkService.defaultInstance() : _cf = CloudFunctions(region: 'europe-west2');
-
-  /// Utility function to call a Firebase Function
-  Future<T> _call<T>(String name, Map params) async {
-    log('NetworkService._call, $name, $params');
-    final callable = _cf.getHttpsCallable(
-      functionName: name,
-    );
-    try {
-      final result = await callable.call(params);
-      print(result);
-      print(result.data);
-      return result.data;
-    } on CloudFunctionsException catch (e) {
-      log(e.message);
-      log(e.toString());
-      return null;
-    }
-  }
+  NetworkService(this._client);
 
   /// Get a stripe ephemeral key
-  Future<String> getEphemeralKey(String apiVersion) async {
-    final result = await _call('getEphemeralKey', {'stripeVersion': apiVersion});
-    final key = result['key'];
-    final jsonKey = json.encode(key);
-    return jsonKey;
+  Future<EphemeralKey> getEphemeralKey(String apiVersion) async {
+    final result = await _client.get<Map<String, dynamic>>(
+      '/ephemeralKey',
+      queryParameters: {'apiVersion': apiVersion},
+    );
+    return EphemeralKey.fromJson(result.data);
   }
 
-  Future<IntentResponse> createSetupIntent() async {
-    final response = await _call('createSetupIntent', {});
-    return IntentResponse(response['status'], response['clientSecret']);
+  Future<IntentResponse> createSetupIntent(
+      {String paymentMethod, String returnUrl}) async {
+    final response = await _client.post<Map<String, dynamic>>(
+      '/setupIntent',
+      data: {
+        'paymentMethod': paymentMethod,
+        'returnUrl': returnUrl,
+      }..removeWhere((key, value) => value == null),
+    );
+    return IntentResponse.fromJson(response.data);
   }
 
-  Future<IntentResponse> createSetupIntentWithPaymentMethod(paymentMethod, String returnUrl) async {
-    final params = {'paymentMethod': paymentMethod, 'returnUrl': returnUrl};
-    final response = await _call('createSetupIntent', params);
-    return IntentResponse(response['status'], response['clientSecret']);
-  }
-
-  Future<IntentResponse> createAutomaticPaymentIntent(int amount) async {
-    final params = {
-      'amount': amount,
-    };
-    final response = await _call('createAutomaticPaymentIntent', params);
-    return IntentResponse(response['status'], response['clientSecret']);
-  }
-
-  Future<Map> createManualPaymentIntent(int amount, String paymentMethod, String returnUrl) {
-    final params = {'amount': amount, 'paymentMethod': paymentMethod, 'returnUrl': returnUrl};
-    return _call('createManualPaymentIntent', params);
+  Future<IntentResponse> createPaymentIntent({
+    @required int amount,
+    String paymentMethod,
+    String returnUrl,
+  }) async {
+    final response = await _client.post<Map<String, dynamic>>(
+      '/paymentIntent',
+      data: {
+        'amount': amount,
+        'paymentMethod': paymentMethod,
+        'returnUrl': returnUrl
+      }..removeWhere((key, value) => value == null),
+    );
+    return IntentResponse.fromJson(response.data);
   }
 }

@@ -1,9 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:stripe_sdk/stripe_sdk.dart';
-import 'package:stripe_sdk/stripe_sdk_ui.dart';
 import 'package:stripe_sdk_example/network/network_service.dart';
 
 import '../locator.dart';
@@ -31,48 +28,23 @@ class PaymentScreen extends StatelessWidget {
         Card(
           child: ListTile(
             title: Text('Checkout (WIP)'),
-            onTap: () => checkout(context),
+            onTap: () {},
           ),
         ),
       ]),
     );
   }
 
-  Future checkout(BuildContext context) {
-    var items = [
-      CheckoutItem(
-        name: 'Book',
-        price: 40000,
-        currency: '\$',
-      ),
-      CheckoutItem(
-        name: 'CD',
-        price: 10000,
-        currency: '\$',
-      )
-    ];
-    final networkService = locator.get();
-    return Navigator.push(context, MaterialPageRoute(builder: (context) {
-      // ignore: deprecated_member_use
-      return CheckoutScreen(
-        title: 'Checkout',
-        items: items,
-//        paymentMethods: paymentMethods.paymentMethods.map((e) => PaymentMethod(e.id, e.last4)),
-        createPaymentIntent: networkService.createAutomaticPaymentIntent,
-      );
-    }));
-  }
-
   void createAutomaticPaymentIntent(BuildContext context) async {
     final networkService = locator.get<NetworkService>();
-    final response = await networkService.createAutomaticPaymentIntent(10000);
+    final response = await networkService.createPaymentIntent(amount: 10000);
     if (response.status == 'succeeded') {
       // TODO: success
       debugPrint('Success before authentication.');
       return;
     }
-    final result =
-        await Stripe.instance.confirmPayment(response.clientSecret, paymentMethodId: 'pm_card_threeDSecure2Required');
+    final result = await Stripe.instance.confirmPayment(response.clientSecret,
+        paymentMethodId: 'pm_card_threeDSecure2Required');
     if (result['status'] == 'succeeded') {
       // TODO: success
       debugPrint('Success after authentication.');
@@ -84,14 +56,18 @@ class PaymentScreen extends StatelessWidget {
 
   void createManualPaymentIntent(BuildContext context) async {
     final networkService = locator.get<NetworkService>();
-    final response = await networkService.createManualPaymentIntent(
-        10000, 'pm_card_threeDSecure2Required', Stripe.instance.getReturnUrlForSca(webReturnPath: '/'));
-    if (response['status'] == 'succeeded') {
+    final response = await networkService.createPaymentIntent(
+      amount: 10000,
+      paymentMethod: 'pm_card_threeDSecure2Required',
+      returnUrl: Stripe.instance.getReturnUrlForSca(webReturnPath: '/'),
+    );
+    if (response.isSucceded) {
       // TODO: success
       debugPrint('Success before authentication.');
       return;
     }
-    final result = await Stripe.instance.authenticatePayment(response['clientSecret']);
+    final result =
+        await Stripe.instance.authenticatePayment(response.clientSecret);
     if (result['status'] == 'requires_confirmation') {
       // TODO: make call to server to confirm
       debugPrint('Success after authentication.');
